@@ -39,11 +39,17 @@ class MainController: NSObject {
     
     // View switching
     private let viewSwitchButton = NSButton()
-    private var isShowingLogs = false {
+    private var isShowingLogs = true {  // 默认显示结果视图
         didSet {
             switchRightPanelView()
         }
     }
+    
+    // Split view state
+    private var userHasAdjustedSplit = false
+    
+    // Constraint references for dynamic layout
+    private var viewSwitchButtonConstraint: NSLayoutConstraint?
 
     private lazy var inputCoordinator = InputCoordinator(logController: logController)
 
@@ -60,6 +66,7 @@ class MainController: NSObject {
         super.init()
         
         logController.delegate = self
+        inputCoordinator.delegate = self
         
         // 添加一个测试日志消息以确保日志功能正常工作
         logController.addLogMessage("MacSymbolicator started successfully")
@@ -131,8 +138,8 @@ class MainController: NSObject {
         resultContainerView.addSubview(resultToolbarView)
         resultContainerView.addSubview(resultScrollView)
         
-        // Set initial split position (60% left, 40% right)
-        splitView.setPosition(720, ofDividerAt: 0)
+        // Set initial split position (fixed left width)
+        splitView.setPosition(480, ofDividerAt: 0)
     }
     
     private func setupConstraints() {
@@ -278,8 +285,8 @@ class MainController: NSObject {
         logsTextView.string = "Logs will appear here..."
         
         // 使用统一的高辨识度配色方案
-        resultTextView.textColor = NSColor.secondaryLabelColor
-        logsTextView.textColor = NSColor.white
+        resultTextView.textColor = NSColor.labelColor
+        logsTextView.textColor = NSColor.labelColor
         
         resultScrollView.documentView = resultTextView
         logsScrollView.documentView = logsTextView
@@ -308,17 +315,21 @@ class MainController: NSObject {
             
             clearButton.trailingAnchor.constraint(equalTo: resultToolbarView.trailingAnchor, constant: -16),
             clearButton.centerYAnchor.constraint(equalTo: resultToolbarView.centerYAnchor),
-            clearButton.widthAnchor.constraint(equalToConstant: 80),
+            clearButton.widthAnchor.constraint(equalToConstant: 100),
             
             saveButton.trailingAnchor.constraint(equalTo: clearButton.leadingAnchor, constant: -12),
             saveButton.centerYAnchor.constraint(equalTo: resultToolbarView.centerYAnchor),
             saveButton.widthAnchor.constraint(equalToConstant: 80),
             
-            viewSwitchButton.trailingAnchor.constraint(equalTo: saveButton.leadingAnchor, constant: -12),
             viewSwitchButton.centerYAnchor.constraint(equalTo: resultToolbarView.centerYAnchor),
-            viewSwitchButton.widthAnchor.constraint(equalToConstant: 100),
-            
-            // Result scroll view constraints
+            viewSwitchButton.widthAnchor.constraint(equalToConstant: 110),
+        ])
+        
+        // Set initial viewSwitchButton position constraint (will be updated in switchRightPanelView)
+        viewSwitchButtonConstraint = viewSwitchButton.trailingAnchor.constraint(equalTo: saveButton.leadingAnchor, constant: -12)
+        viewSwitchButtonConstraint?.isActive = true
+        
+        NSLayoutConstraint.activate([
             resultScrollView.topAnchor.constraint(equalTo: resultToolbarView.bottomAnchor),
             resultScrollView.leadingAnchor.constraint(equalTo: resultContainerView.leadingAnchor),
             resultScrollView.trailingAnchor.constraint(equalTo: resultContainerView.trailingAnchor),
@@ -331,12 +342,11 @@ class MainController: NSObject {
             logsScrollView.bottomAnchor.constraint(equalTo: resultContainerView.bottomAnchor)
         ])
         
-        // Initially show result view and hide logs view
-        logsScrollView.isHidden = true
-        rightSideView.alphaValue = 0.3
-        
         // Initialize logs display
         updateLogsDisplay()
+        
+        // Ensure the UI matches the initial isShowingLogs state
+        switchRightPanelView()
     }
     
     @objc private func toggleView() {
@@ -344,16 +354,23 @@ class MainController: NSObject {
     }
     
     private func switchRightPanelView() {
+        // Update viewSwitchButton position constraint
+        viewSwitchButtonConstraint?.isActive = false
+        
         if isShowingLogs {
             resultScrollView.isHidden = true
             logsScrollView.isHidden = false
             resultTitleLabel.stringValue = "Logs"
-            resultTitleLabel.textColor = NSColor.white
+            resultTitleLabel.textColor = NSColor.labelColor
             viewSwitchButton.title = "View Result"
             saveButton.isHidden = true
             clearButton.title = "Clear Logs"
             clearButton.target = self
             clearButton.action = #selector(clearLogs)
+            
+            // Position viewSwitchButton relative to clearButton when saveButton is hidden
+            viewSwitchButtonConstraint = viewSwitchButton.trailingAnchor.constraint(equalTo: clearButton.leadingAnchor, constant: -12)
+            
             updateLogsDisplay()
             
             // 强制重新布局和显示
@@ -364,30 +381,35 @@ class MainController: NSObject {
             resultScrollView.isHidden = false
             logsScrollView.isHidden = true
             resultTitleLabel.stringValue = "Symbolicated Result"
-            resultTitleLabel.textColor = NSColor.white
+            resultTitleLabel.textColor = NSColor.labelColor
             viewSwitchButton.title = "View Logs"
             saveButton.isHidden = false
             clearButton.title = "Clear"
             clearButton.target = self
             clearButton.action = #selector(clearResult)
             
+            // Position viewSwitchButton relative to saveButton when saveButton is visible
+            viewSwitchButtonConstraint = viewSwitchButton.trailingAnchor.constraint(equalTo: saveButton.leadingAnchor, constant: -12)
+            
             // 强制重新布局和显示
             resultScrollView.needsLayout = true
             resultScrollView.layoutSubtreeIfNeeded()
             resultTextView.needsDisplay = true
         }
+        
+        viewSwitchButtonConstraint?.isActive = true
     }
     
     private func updateLogsDisplay() {
         DispatchQueue.main.async {
-            let logs = self.logController.logMessages.joined(separator: "\n")
+            let logs = self.logController.logMessages.joined(separator: "\n\n")
             print("DEBUG: updateLogsDisplay called, logs count: \(self.logController.logMessages.count)")
             print("DEBUG: logs content: \(logs)")
             
             self.logsTextView.string = logs.isEmpty ? "No logs available..." : logs
             
             // 使用统一的高辨识度配色方案
-            self.logsTextView.textColor = logs.isEmpty ? NSColor.secondaryLabelColor : NSColor.white
+            self.logsTextView.textColor = logs.isEmpty ? NSColor.secondaryLabelColor : NSColor.labelColor
             
             // 强制刷新显示
             self.logsTextView.needsDisplay = true
@@ -423,12 +445,12 @@ class MainController: NSObject {
 
         isSymbolicating = true
         
-        // 确保切换到结果页面以显示进度和结果
+        // 符号化时切换到结果页面以显示进度和结果
         isShowingLogs = false
         
         // Show loading state in result view
         resultTextView.string = "Symbolicating..."
-        resultTextView.textColor = NSColor.white
+        resultTextView.textColor = NSColor.labelColor
         rightSideView.alphaValue = 1.0
         saveButton.isEnabled = false
         clearButton.isEnabled = false
@@ -447,7 +469,7 @@ class MainController: NSObject {
                 if success {
                     // Display result in the right panel
                     self.resultTextView.string = symbolicator.symbolicatedContent ?? ""
-                    self.resultTextView.textColor = NSColor.white
+                    self.resultTextView.textColor = NSColor.labelColor
                     self.saveButton.isEnabled = true
                     self.clearButton.isEnabled = true
                     self.currentSaveURL = reportFile.symbolicatedContentSaveURL
@@ -523,12 +545,12 @@ class MainController: NSObject {
     
     @objc func clearResult() {
         resultTextView.string = "Symbolication results will appear here..."
-        resultTextView.textColor = NSColor.secondaryLabelColor
+        resultTextView.textColor = NSColor.labelColor
         saveButton.isEnabled = false
         clearButton.isEnabled = false
         currentSaveURL = nil
         saveButton.title = "Save"
-        rightSideView.alphaValue = 0.3
+        rightSideView.alphaValue = 1.0
     }
 
     func openFile(_ path: String) -> Bool {
@@ -585,6 +607,11 @@ extension MainController: NSSplitViewDelegate {
         return splitView.frame.width - 300 // Minimum width for right side (result area)
     }
     
+    func splitViewDidResizeSubviews(_ notification: Notification) {
+        // Mark that user has manually adjusted the split
+        userHasAdjustedSplit = true
+    }
+    
     func splitView(_ splitView: NSSplitView, resizeSubviewsWithOldSize oldSize: NSSize) {
         guard splitView.subviews.count == 2 else { return }
         
@@ -595,38 +622,41 @@ extension MainController: NSSplitViewDelegate {
         let newWidth = splitView.frame.width
         let newHeight = splitView.frame.height
         
-        // Maintain proportional sizing, but respect minimum widths
+        // Keep left side width fixed, only adjust right side
         let leftMinWidth: CGFloat = 400
         let rightMinWidth: CGFloat = 300
         
         let currentLeftWidth = leftView.frame.width
-        let currentRightWidth = rightView.frame.width
-        let currentTotalWidth = currentLeftWidth + currentRightWidth
+        var newLeftWidth = currentLeftWidth
+        var newRightWidth = newWidth - newLeftWidth - dividerThickness
         
-        var newLeftWidth: CGFloat
-        var newRightWidth: CGFloat
+        // If it's the first time setting up or user hasn't adjusted, use default
+        if currentLeftWidth <= 0 || !userHasAdjustedSplit {
+            newLeftWidth = 480 // Fixed default width for left side
+            newRightWidth = newWidth - newLeftWidth - dividerThickness
+        }
         
-        if currentTotalWidth > 0 {
-            // Calculate proportional widths
-            let leftRatio = currentLeftWidth / currentTotalWidth
-            newLeftWidth = (newWidth - dividerThickness) * leftRatio
+        // Ensure minimum widths are respected
+        if newLeftWidth < leftMinWidth {
+            newLeftWidth = leftMinWidth
             newRightWidth = newWidth - newLeftWidth - dividerThickness
-            
-            // Adjust if below minimum widths
-            if newLeftWidth < leftMinWidth {
-                newLeftWidth = leftMinWidth
-                newRightWidth = newWidth - newLeftWidth - dividerThickness
-            } else if newRightWidth < rightMinWidth {
-                newRightWidth = rightMinWidth
-                newLeftWidth = newWidth - newRightWidth - dividerThickness
-            }
-        } else {
-            // Default split: 60% left, 40% right
-            newLeftWidth = (newWidth - dividerThickness) * 0.6
-            newRightWidth = newWidth - newLeftWidth - dividerThickness
+        }
+        
+        if newRightWidth < rightMinWidth {
+            newRightWidth = rightMinWidth
+            newLeftWidth = newWidth - newRightWidth - dividerThickness
         }
         
         leftView.frame = NSRect(x: 0, y: 0, width: newLeftWidth, height: newHeight)
         rightView.frame = NSRect(x: newLeftWidth + dividerThickness, y: 0, width: newRightWidth, height: newHeight)
+    }
+}
+
+extension MainController: InputCoordinatorDelegate {
+    func inputCoordinatorDidUpdateReportFile(_ coordinator: InputCoordinator) {
+        DispatchQueue.main.async {
+            // 选中新的crash文件时，切换到日志视图
+            self.isShowingLogs = true
+        }
     }
 }

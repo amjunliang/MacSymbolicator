@@ -6,6 +6,10 @@
 import Foundation
 import Cocoa
 
+protocol InputCoordinatorDelegate: AnyObject {
+    func inputCoordinatorDidUpdateReportFile(_ coordinator: InputCoordinator)
+}
+
 class InputCoordinator {
     let reportFileDropZone = DropZone(
         fileTypes: [".crash", ".ips", ".txt", ".hang"],
@@ -28,6 +32,7 @@ class InputCoordinator {
     private var isSearchingForDSYMs = false
 
     private let logController: LogController
+    weak var delegate: InputCoordinatorDelegate?
 
     private var expectedDSYMUUIDs: Set<String> {
         guard let reportFile = reportFile else { return Set<String>() }
@@ -159,6 +164,7 @@ extension InputCoordinator: DropZoneDelegate {
 
             if reportFile != nil {
                 startSearchForDSYMs()
+                delegate?.inputCoordinatorDidUpdateReportFile(self)
             }
 
             return fileURLs
