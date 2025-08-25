@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import Cocoa
 
 class InputCoordinator {
     let reportFileDropZone = DropZone(
@@ -169,5 +170,38 @@ extension InputCoordinator: DropZoneDelegate {
         }
 
         return []
+    }
+    
+    func dropZoneDoubleClicked(dropZone: DropZone) {
+        if dropZone == reportFileDropZone {
+            openFileDialog(for: reportFileDropZone)
+        } else if dropZone == dsymFilesDropZone {
+            openFileDialog(for: dsymFilesDropZone)
+        }
+    }
+    
+    private func openFileDialog(for dropZone: DropZone) {
+        let openPanel = NSOpenPanel()
+        openPanel.canChooseFiles = true
+        openPanel.canChooseDirectories = false
+        openPanel.allowsMultipleSelection = dropZone.allowsMultipleFiles
+        
+        // 设置允许的文件类型
+        openPanel.allowedFileTypes = dropZone.fileTypes.map { fileType in
+            // 移除前缀的点
+            return fileType.hasPrefix(".") ? String(fileType.dropFirst()) : fileType
+        }
+        
+        openPanel.begin { response in
+            if response == .OK {
+                let selectedURLs = openPanel.urls
+                let acceptedURLs = self.receivedFiles(dropZone: dropZone, fileURLs: selectedURLs)
+                
+                // 更新 dropZone 的文件列表
+                for url in acceptedURLs {
+                    dropZone.files.insert(url)
+                }
+            }
+        }
     }
 }

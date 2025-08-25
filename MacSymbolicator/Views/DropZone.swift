@@ -9,6 +9,7 @@ import Cocoa
 
 protocol DropZoneDelegate: AnyObject {
     func receivedFiles(dropZone: DropZone, fileURLs: [URL]) -> [URL]
+    func dropZoneDoubleClicked(dropZone: DropZone)
 }
 
 class DropZone: NSView {
@@ -92,7 +93,7 @@ class DropZone: NSView {
 
     var activatesAppAfterDrop: Bool
 
-    private let allowsMultipleFiles: Bool
+    let allowsMultipleFiles: Bool
 
     private let containerView = NSView()
     private let textContainerStackView = NSStackView()
@@ -193,6 +194,11 @@ class DropZone: NSView {
         tableView.addTableColumn(column)
 
         layoutElements()
+        
+        // 添加双击手势支持
+        let clickGestureRecognizer = NSClickGestureRecognizer(target: self, action: #selector(handleDoubleClick(_:)))
+        clickGestureRecognizer.numberOfClicksRequired = 2
+        addGestureRecognizer(clickGestureRecognizer)
 
         if allowsMultipleFiles {
             addSubview(tableViewScrollView)
@@ -424,6 +430,10 @@ class DropZone: NSView {
             self.isFlashing = false
             self.display()
         }
+    }
+    
+    @objc private func handleDoubleClick(_ gestureRecognizer: NSClickGestureRecognizer) {
+        delegate?.dropZoneDoubleClicked(dropZone: self)
     }
 }
 
