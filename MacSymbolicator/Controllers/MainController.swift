@@ -439,6 +439,23 @@ class MainController: NSObject {
             inputCoordinator.dsymFilesDropZone.flash()
             return
         }
+        
+        // 检查是否有缺失的 DSYM 文件
+        if inputCoordinator.hasMissingDSYMs {
+            let missingCount = inputCoordinator.missingDSYMsCount
+            let alert = NSAlert()
+            alert.messageText = "Missing dSYM Files"
+            alert.informativeText = "There are \(missingCount) dSYM file(s) still missing for complete symbolication. Do you want to continue with partial symbolication?"
+            alert.addButton(withTitle: "Continue")
+            alert.addButton(withTitle: "Cancel")
+            alert.alertStyle = .warning
+            
+            let response = alert.runModal()
+            if response == .alertSecondButtonReturn {
+                // 用户选择取消
+                return
+            }
+        }
 
         logController.resetLogs()
         logController.addLogMessage("Starting symbolication process...")

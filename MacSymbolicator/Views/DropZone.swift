@@ -178,7 +178,10 @@ class DropZone: NSView {
         tableView.delegate = self
         tableView.dataSource = self
         tableView.focusRingType = .none
-        tableView.usesAlternatingRowBackgroundColors = true
+        tableView.usesAlternatingRowBackgroundColors = false
+        tableView.gridStyleMask = .solidHorizontalGridLineMask
+        tableView.allowsEmptySelection = true
+        tableView.allowsMultipleSelection = false
         tableView.headerView = nil
         tableView.rowHeight = 44
 
@@ -372,16 +375,11 @@ class DropZone: NSView {
             isFilled = false
             drawTableViewBorder = false
         case .multipleFiles:
-            var rect = containerView.frame
-
-            let newHeight: CGFloat = 60
-            rect.origin.y += (rect.size.height - newHeight)
-            rect.size.height = newHeight
-
-            drawRect = rect.insetBy(dx: borderPadding, dy: borderPadding)
+            // 绘制整个区域的边框，而不是只绘制顶部紧凑区域
+            drawRect = bounds.insetBy(dx: borderPadding, dy: borderPadding)
 
             isFilled = true
-            drawTableViewBorder = true
+            drawTableViewBorder = false
         }
 
         if isFilled {
@@ -494,6 +492,10 @@ extension DropZone: NSTableViewDataSource, NSTableViewDelegate {
     func tableView(_ tableView: NSTableView, objectValueFor tableColumn: NSTableColumn?, row: Int) -> Any? {
         let rowIndex = files.index(files.startIndex, offsetBy: row)
         return files[rowIndex].lastPathComponent
+    }
+
+    func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
+        return false
     }
 
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {

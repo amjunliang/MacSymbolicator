@@ -48,6 +48,17 @@ class InputCoordinator {
     private var remainingDSYMUUIDs: Set<String> {
         expectedDSYMUUIDs.subtracting(foundDSYMUUIDs)
     }
+    
+    /// 检查是否有缺失的 DSYM 文件
+    var hasMissingDSYMs: Bool {
+        guard reportFile != nil else { return false }
+        return !remainingDSYMUUIDs.isEmpty
+    }
+    
+    /// 获取缺失的 DSYM 数量
+    var missingDSYMsCount: Int {
+        return remainingDSYMUUIDs.count
+    }
 
     init(logController: any LogController) {
         self.logController = logController
