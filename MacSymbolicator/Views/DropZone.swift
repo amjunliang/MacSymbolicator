@@ -88,6 +88,9 @@ class DropZone: NSView {
             } else {
                 state = files.isEmpty ? .oneFileEmpty : .oneFile
             }
+            
+            // 当文件变化时更新图标
+            updateRegisteredFileTypes()
         }
     }
 
@@ -279,8 +282,14 @@ class DropZone: NSView {
 
         registerForDraggedTypes([(kUTTypeFileURL as NSPasteboard.PasteboardType)])
 
-        let primaryFileType = _fileTypes[0]
-        icon = NSWorkspace.shared.icon(forFileType: primaryFileType)
+        // 如果有选择的文件，使用文件的实际图标；否则使用文件类型的默认图标
+        if let selectedFile = files.first {
+            icon = NSWorkspace.shared.icon(forFile: selectedFile.path)
+        } else {
+            let primaryFileType = _fileTypes[0]
+            icon = NSWorkspace.shared.icon(forFileType: primaryFileType)
+        }
+        
         updateText()
     }
 
@@ -305,8 +314,8 @@ class DropZone: NSView {
             detailLabelText = detailText
         case .oneFile:
             mainLabelText = files.first?.lastPathComponent ?? text
-            fileTypeLabelText = _fileTypes.joined(separator: " / ")
-            detailLabelText = detailText
+            fileTypeLabelText = files.first?.deletingLastPathComponent().path
+            detailLabelText = _fileTypes.joined(separator: " / ")
         case .multipleFilesEmpty, .oneFileEmpty:
             mainLabelText = text
             fileTypeLabelText = _fileTypes.joined(separator: " / ")
@@ -314,9 +323,21 @@ class DropZone: NSView {
         }
 
         if let text = mainLabelText {
+            let textColor: NSColor
+            let fontSize: CGFloat
+            
+            switch state {
+            case .oneFile:
+                textColor = .labelColor  // 使用主标签颜色，更突出
+                fontSize = 16  // 增加字体大小
+            default:
+                textColor = .secondaryLabelColor
+                fontSize = 14
+            }
+            
             textTextField.attributedStringValue = NSAttributedString(
                 string: text,
-                attributes: Style.textAttributes(size: 14, color: .secondaryLabelColor)
+                attributes: Style.textAttributes(size: fontSize, color: textColor)
             )
             textTextField.isHidden = false
         } else {
@@ -325,9 +346,21 @@ class DropZone: NSView {
         }
 
         if let text = fileTypeLabelText {
+            let textColor: NSColor
+            let fontSize: CGFloat
+            
+            switch state {
+            case .oneFile:
+                textColor = .tertiaryLabelColor  // 路径用较淡的颜色
+                fontSize = 12  // 较小的字体
+            default:
+                textColor = .labelColor
+                fontSize = 16
+            }
+            
             fileTypeTextField.attributedStringValue = NSAttributedString(
                 string: text,
-                attributes: Style.textAttributes(size: 16, color: .labelColor)
+                attributes: Style.textAttributes(size: fontSize, color: textColor)
             )
             fileTypeTextField.isHidden = false
         } else {
@@ -336,9 +369,21 @@ class DropZone: NSView {
         }
 
         if let text = detailLabelText {
+            let textColor: NSColor
+            let fontSize: CGFloat
+            
+            switch state {
+            case .oneFile:
+                textColor = .secondaryLabelColor  // 文件类型用次要标签颜色
+                fontSize = 11  // 较小字体
+            default:
+                textColor = .tertiaryLabelColor
+                fontSize = 12
+            }
+            
             detailTextTextField.attributedStringValue = NSAttributedString(
                 string: text,
-                attributes: Style.textAttributes(size: 12, color: .tertiaryLabelColor)
+                attributes: Style.textAttributes(size: fontSize, color: textColor)
             )
             detailTextTextField.isHidden = false
         } else {
